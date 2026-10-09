@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Grind</title>
+  <meta name="description" content="A daily planner that shows what is next and whether your week fits.">
+  <meta name="theme-color" content="#16222B">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Grind">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <main id="app"></main>
+  <nav class="tabs" id="tabs" aria-label="Main"></nav>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <input type="file" id="file" accept="application/json,.json" hidden>
+  <noscript>Grind needs JavaScript to run.</noscript>
+  <script src="js/seed.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
