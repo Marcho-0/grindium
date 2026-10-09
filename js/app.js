@@ -1,7 +1,7 @@
 /* Grind v0.1: Today, Week, Settings. No framework, no build step. */
 (function () {
   "use strict";
-  var VERSION = "0.1.0";
+  var VERSION = "0.1.1";
   var t = Grind.i18n.t;
   var COLORS = {};
   Grind.cats.forEach(function (c) { COLORS[c.id] = c.color; });
@@ -14,6 +14,7 @@
   var $toast = document.getElementById("toast");
   var $file = document.getElementById("file");
   var ui = { view: "today", day: null };
+  var sleepUI = { day: null, n: 5 };
   var deferredPrompt = null;
   var persisted = null;
 
@@ -105,7 +106,7 @@
         '<span class="txt"><b>' + esc(title(b)) + "</b><small>" + esc(meta) + "</small></span>" + check + "</li>";
     }).join("");
     var bed = '<li class="row bedtime"><span class="t">' + esc(S.settings.bedtime) + '</span><span class="bar"></span>' +
-      '<span class="txt"><b>' + esc(t("bedtime")) + "</b></span><span></span></li>";
+      '<span class="txt"><b>' + esc(t("bedtime")) + "</b>" + (o.live && o.hint ? "<small>" + esc(bedHint()) + "</small>" : "") + "</span><span></span></li>";
     return '<ol class="rail">' + rows + bed + "</ol>";
   }
 
@@ -173,7 +174,7 @@
     var freeLine = freeLeft > 0 ? '<p class="freeleft">' + esc(t("free.left", { time: dur(freeLeft) })) + "</p>" : "";
 
     return head + card + banners() + dayBar(blocks, n.min) + freeLine +
-      rail(blocks, { live: true, min: n.min, key: n.key });
+      rail(blocks, { live: true, min: n.min, key: n.key, hint: true });
   }
 
   function viewWeek() {
@@ -229,14 +230,107 @@
       '<p class="foot">' + esc(t("settings.privacy")) + "<br>" + esc(t("settings.version", { version: VERSION })) + "</p>";
   }
 
+
+  /* ---------- sleep: cycles, REM windows, circadian anchors ---------- */
+  /* Typical share of each cycle spent in deep sleep and REM. Early cycles are deep-heavy, late cycles REM-heavy. */
+  var REM_SHARE = [0.10, 0.17, 0.23, 0.27, 0.30, 0.33];
+  var DEEP_SHARE = [0.30, 0.25, 0.15, 0.08, 0.04, 0.02];
+  function wrap(m) { return ((Math.round(m) % 1440) + 1440) % 1440; }
+  function circ(a, b) { var d = Math.abs(wrap(a) - wrap(b)); return Math.min(d, 1440 - d); }
+  function wakeOf(day) { var bl = blocksFor(day); return bl.length ? toMin(bl[0].start) : 420; }
+  function cfg() { return { lat: S.settings.sleep.latency, cyc: S.settings.sleep.cycle }; }
+  function wakeTimes(bed) {
+    var c = cfg();
+    return [4, 5, 6].map(function (n) { return { n: n, sleep: n * c.cyc, wake: wrap(bed + c.lat + n * c.cyc) }; });
+  }
+  function bedTimes(wake) {
+    var c = cfg();
+    return [6, 5, 4].map(function (n) { return { n: n, sleep: n * c.cyc, bed: wrap(wake - n * c.cyc - c.lat), wake: wake }; });
+  }
+  function bedHint() {
+    var n = nowInfo(), tm = (n.day + 1) % 7, W = wakeOf(tm), cur = toMin(S.settings.bedtime);
+    var best = bedTimes(W).filter(function (o) { return o.n >= 5; })
+      .sort(function (a, b) { return circ(a.bed, cur) - circ(b.bed, cur); })[0];
+    if (circ(best.bed, cur) <= 10) return t("sleep.fits", { wake: toStr(W) });
+    return t("sleep.tomorrow", { wake: toStr(W), bed: toStr(best.bed) });
+  }
+  function stageSegs(i, L) {
+    var k = Math.min(i - 1, 5), rem = REM_SHARE[k] * L, deep = DEEP_SHARE[k] * L, light = L - rem - deep;
+    return { rem: rem, parts: [["light", light * 0.4], ["deep", deep], ["light", light * 0.6], ["rem", rem]] };
+  }
+  function optRow(big, line, tags, extra) {
+    return big + '<span class="opt-txt"><span>' + esc(line) + "</span>" + (tags ? "<small>" + esc(tags) + "</small>" : "") + "</span>" + (extra || "");
+  }
+
+  function viewSleep() {
+    var c = cfg(), n = nowInfo();
+    if (sleepUI.day == null) sleepUI.day = (n.day + 1) % 7;
+    var B = toMin(S.settings.bedtime), W = wakeOf(sleepUI.day);
+    var dn = dayName(sleepUI.day, "long");
+
+    var wakeRows = wakeTimes(B), nearest = wakeRows.slice().sort(function (a, b) { return circ(a.wake, W) - circ(b.wake, W); })[0];
+    var wakeList = wakeRows.map(function (o) {
+      var tags = [o.sleep >= 420 ? t("sleep.enough") : t("sleep.short")];
+      if (o === nearest && circ(o.wake, W) <= 45) tags.push(t("sleep.closest", { day: dn }));
+      return '<li class="opt">' + optRow('<b class="big">' + toStr(o.wake) + "</b>", t("sleep.cycles", { n: o.n }) + ", " + dur(o.sleep), tags.join(", ")) + "</li>";
+    }).join("");
+
+    var chips = [0, 1, 2, 3, 4, 5, 6].map(function (d) {
+      return '<button class="chip" data-act="sleepDay" data-day="' + d + '" aria-pressed="' + (d === sleepUI.day) + '">' + esc(dayName(d, "short")) + "</button>";
+    }).join("");
+    var bedRows = bedTimes(W), sel = bedRows.filter(function (o) { return o.n === sleepUI.n; })[0] || bedRows[1];
+    var bedList = bedRows.map(function (o) {
+      var tags = o.sleep >= 420 ? t("sleep.enough") : t("sleep.short");
+      return '<li><button class="opt pick" data-act="sleepN" data-n="' + o.n + '" aria-pressed="' + (o === sel) + '">' +
+        optRow('<b class="big">' + toStr(o.bed) + "</b>", t("sleep.cycles", { n: o.n }) + ", " + dur(o.sleep), t("sleep.wakeAt", { time: toStr(o.wake) }) + ", " + tags) + "</button></li>";
+    }).join("");
+
+    /* night timeline for the selected bedtime */
+    var onset = sel.bed + c.lat, rows = "";
+    for (var i = 1; i <= sel.n; i++) {
+      var st = onset + (i - 1) * c.cyc, seg = stageSegs(i, c.cyc);
+      var remStart = wrap(st + c.cyc - seg.rem), end = wrap(st + c.cyc);
+      var bar = seg.parts.map(function (p) { return '<i class="st ' + p[0] + '" style="flex:' + p[1].toFixed(2) + '"></i>'; }).join("");
+      rows += '<li class="cyc"><div class="cyc-head"><b>' + esc(t("sleep.cycleN", { n: i })) + "</b><span>" + toStr(wrap(st)) + "\u2013" + toStr(end) + "</span></div>" +
+        '<div class="cyc-bar">' + bar + "</div><small>" + esc(t("sleep.remAt", { range: toStr(remStart) + "\u2013" + toStr(end) })) + "</small></li>";
+    }
+    var legend = '<ul class="legend"><li><i class="sw st light"></i>' + esc(t("sleep.light")) + '</li><li><i class="sw st deep"></i>' + esc(t("sleep.deep")) +
+      '</li><li><i class="sw st rem"></i>' + esc(t("sleep.rem")) + "</li></ul>";
+
+    /* circadian anchors and weekday/weekend drift */
+    var wd = (wakeOf(0) + wakeOf(1) + wakeOf(2) + wakeOf(3) + wakeOf(4)) / 5, we = (wakeOf(5) + wakeOf(6)) / 2, diff = Math.round(we - wd);
+    var drift = diff > 60
+      ? t("sleep.drift", { x: dur(diff), time: toStr(Math.round((wd + 60) / 5) * 5) })
+      : t("sleep.aligned");
+    var anchors = "<ul class=\"anchors\"><li>" + esc(t("sleep.daylight", { from: toStr(W), to: toStr(wrap(W + 60)) })) + "</li><li>" +
+      esc(t("sleep.caffeine", { time: toStr(wrap(sel.bed - 480)) })) + "</li><li>" + esc(t("sleep.winddown", { time: toStr(wrap(sel.bed - 60)) })) +
+      "</li></ul><p class=\"drift\">" + esc(drift) + "</p>";
+
+    var latOpts = [5, 10, 15, 20, 30].map(function (v) { return '<option value="' + v + '"' + (v === c.lat ? " selected" : "") + ">" + v + " " + t("min") + "</option>"; }).join("");
+    var cycOpts = [80, 85, 90, 95, 100, 105, 110].map(function (v) { return '<option value="' + v + '"' + (v === c.cyc ? " selected" : "") + ">" + v + " " + t("min") + "</option>"; }).join("");
+
+    return '<header class="top"><h1>' + esc(t("sleep.title")) + '</h1><p class="date">' + esc(t("sleep.intro")) + "</p></header>" +
+      '<section class="panel"><label for="sleepBed">' + esc(t("sleep.bedtime")) + '</label><input id="sleepBed" type="time" value="' + esc(S.settings.bedtime) + '">' +
+      "<small>" + esc(t("sleep.bedtimeHelp", { bed: toStr(B), onset: toStr(wrap(B + c.lat)) })) + "</small>" +
+      "<h3>" + esc(t("sleep.wakeTitle")) + '</h3><ul class="opts">' + wakeList + "</ul></section>" +
+      '<section class="panel"><h3>' + esc(t("sleep.bestFor")) + '</h3><div class="chips">' + chips + '</div><ul class="opts">' + bedList + "</ul>" +
+      '<button class="btn" data-act="applyBed">' + esc(t("sleep.useBed")) + "</button></section>" +
+      '<section class="panel"><h3>' + esc(t("sleep.night")) + "</h3>" + legend + '<ol class="cycles">' + rows + "</ol><small>" + esc(t("sleep.lastRem")) + "</small></section>" +
+      '<section class="panel"><h3>' + esc(t("sleep.anchors")) + "</h3>" + anchors + "</section>" +
+      '<section class="panel"><h3>' + esc(t("sleep.tune")) + '</h3><label for="sleepLat">' + esc(t("sleep.latency")) + '</label><select id="sleepLat">' + latOpts + "</select>" +
+      '<label for="sleepCyc">' + esc(t("sleep.cycleLen")) + '</label><select id="sleepCyc">' + cycOpts + "</select></section>" +
+      '<p class="foot">' + esc(t("sleep.caveat")) + "</p>";
+  }
+
   var ICONS = {
     today: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
     week: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v16M10 4v16M15 4v16M20 4v16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="7 3"/></svg>',
+    sleep: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
     settings: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h9M17 8h3M4 16h3M11 16h9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="15" cy="8" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="16" r="2.2" fill="none" stroke="currentColor" stroke-width="2"/></svg>'
   };
   function renderTabs() {
     var cur = ui.view === "day" ? "week" : ui.view;
-    $tabs.innerHTML = ["today", "week", "settings"].map(function (v) {
+    $tabs.innerHTML = ["today", "week", "sleep", "settings"].map(function (v) {
       return '<button data-act="nav" data-view="' + v + '"' + (cur === v ? ' aria-current="page"' : "") + ">" + ICONS[v] + "<span>" + esc(t("nav." + v)) + "</span></button>";
     }).join("");
   }
@@ -245,7 +339,7 @@
     var y = window.scrollY;
     Grind.i18n.setLang(S.settings.lang);
     document.documentElement.lang = S.settings.lang;
-    var html = ui.view === "week" ? viewWeek() : ui.view === "day" ? viewDay() : ui.view === "settings" ? viewSettings() : viewToday();
+    var html = ui.view === "week" ? viewWeek() : ui.view === "day" ? viewDay() : ui.view === "settings" ? viewSettings() : ui.view === "sleep" ? viewSleep() : viewToday();
     $app.innerHTML = html;
     renderTabs();
     window.scrollTo(0, keepScroll ? y : 0);
@@ -296,6 +390,12 @@
     var act = el.dataset.act, n = nowInfo();
     if (act === "nav") { ui = { view: el.dataset.view, day: null }; render(false); }
     else if (act === "openDay") { ui = { view: "day", day: +el.dataset.day }; render(false); }
+    else if (act === "sleepDay") { sleepUI.day = +el.dataset.day; render(true); }
+    else if (act === "sleepN") { sleepUI.n = +el.dataset.n; render(true); }
+    else if (act === "applyBed") {
+      var W = wakeOf(sleepUI.day), o = bedTimes(W).filter(function (x) { return x.n === sleepUI.n; })[0];
+      if (o) { S.settings.bedtime = toStr(o.bed); save(); toast(t("sleep.applied", { time: toStr(o.bed) })); render(true); }
+    }
     else if (act === "back") { ui = { view: "week", day: null }; render(false); }
     else if (act === "done") { setStatus(n.key, el.dataset.id, "done"); render(true); }
     else if (act === "skip") { setStatus(n.key, el.dataset.id, "skipped"); render(true); }
@@ -317,6 +417,9 @@
   document.addEventListener("change", function (e) {
     if (e.target.id === "lang") { S.settings.lang = e.target.value; save(); render(true); }
     else if (e.target.id === "bedtime" && /^\d\d:\d\d$/.test(e.target.value)) { S.settings.bedtime = e.target.value; save(); }
+    else if (e.target.id === "sleepBed" && /^\d\d:\d\d$/.test(e.target.value)) { S.settings.bedtime = e.target.value; save(); render(true); }
+    else if (e.target.id === "sleepLat") { S.settings.sleep.latency = +e.target.value; save(); render(true); }
+    else if (e.target.id === "sleepCyc") { S.settings.sleep.cycle = +e.target.value; save(); render(true); }
     else if (e.target.id === "file" && e.target.files[0]) importBackup(e.target.files[0]);
   });
   window.addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); deferredPrompt = e; if (ui.view === "today") render(true); });

@@ -9,6 +9,9 @@
   --now-fg: #F2F5F4;
   --focus: #2F6FED;
   --radius: 14px;
+  --st-light: #9DB4D8;
+  --st-deep: #2F4A78;
+  --st-rem: #8E6FD8;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -21,6 +24,9 @@
     --now-bg: #E7EDEC;
     --now-fg: #0F171C;
     --focus: #7BA6FF;
+    --st-light: #5B7399;
+    --st-deep: #3E5C94;
+    --st-rem: #A58BEA;
   }
 }
 * { box-sizing: border-box; }
@@ -161,3 +167,29 @@ button { font: inherit; color: inherit; }
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+
+/* sleep */
+.opts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
+.opt { display: flex; align-items: center; gap: .9rem; width: 100%; text-align: left; padding: .6rem .75rem; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); }
+.opt .big { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; min-width: 4.2rem; }
+.opt-txt { display: flex; flex-direction: column; min-width: 0; }
+.opt-txt small { color: var(--muted); font-size: .82rem; }
+.opt.pick { cursor: pointer; }
+.opt.pick[aria-pressed="true"] { border: 2px solid var(--ink); padding: calc(.6rem - 1px) calc(.75rem - 1px); }
+.chips { display: flex; gap: .35rem; flex-wrap: wrap; }
+.chip { min-height: 2.5rem; padding: 0 .7rem; border-radius: 999px; border: 1px solid var(--line); background: var(--paper); font-weight: 600; font-size: .9rem; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.cycles { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .7rem; }
+.cyc-head { display: flex; justify-content: space-between; font-size: .9rem; margin-bottom: .25rem; }
+.cyc-head span { color: var(--muted); }
+.cyc-bar { display: flex; height: 22px; gap: 2px; }
+.st { display: block; min-width: 2px; border-radius: 3px; }
+.st.light { background: var(--st-light); }
+.st.deep { background: var(--st-deep); }
+.st.rem { background: var(--st-rem); }
+.sw.st { width: .8rem; height: .8rem; }
+.cyc small { display: block; margin-top: .2rem; }
+.anchors { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: .35rem; }
+.drift { margin: .25rem 0 0; color: var(--muted); font-size: .92rem; }
+.panel label + select, .panel h3 + .chips { margin-top: .1rem; }
+.row.bedtime { min-height: 3rem; }

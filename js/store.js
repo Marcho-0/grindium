@@ -12,7 +12,7 @@ Grind.store = (function () {
       v: 1,
       blocks: clone(Grind.seed),
       log: {},
-      settings: { lang: Grind.i18n.detect(), bedtime: "22:30", installDismissed: false },
+      settings: { lang: Grind.i18n.detect(), bedtime: "22:30", installDismissed: false, sleep: { latency: 15, cycle: 90 } },
       lastBackup: null
     };
   }
@@ -36,6 +36,10 @@ Grind.store = (function () {
     o.settings = Object.assign(base.settings, o.settings || {});
     if (!/^\d\d:\d\d$/.test(o.settings.bedtime)) o.settings.bedtime = "22:30";
     if (o.settings.lang !== "en" && o.settings.lang !== "pl") o.settings.lang = base.settings.lang;
+    var sl = Object.assign({ latency: 15, cycle: 90 }, o.settings.sleep || {});
+    sl.latency = Math.min(45, Math.max(0, +sl.latency || 15));
+    sl.cycle = Math.min(120, Math.max(60, +sl.cycle || 90));
+    o.settings.sleep = sl;
     o.lastBackup = typeof o.lastBackup === "number" ? o.lastBackup : null;
     return o;
   }
