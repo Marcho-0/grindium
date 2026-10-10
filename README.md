@@ -2,7 +2,17 @@
 
 A phone-first daily planner. It shows what you should be doing right now, what is next, how much free time is left today, and your whole week at a glance. Runs as an installable web app (PWA). No account, no server, no tracking: everything stays on your phone.
 
-**Version 0.1.1:** Today, Week, Sleep and Settings screens, your seeded weekly schedule, done/skip tracking, English and Polish, light and dark mode, offline use, backup export/import.
+**Version 0.2.0:** Today, Week, Sleep and Settings screens, a full planner (edit, add, delete), your seeded weekly schedule, done/skip tracking, English and Polish, light and dark mode, offline use, backup export/import.
+
+## Planner
+
+Every block is editable, and changes are saved on the phone.
+
+- **Edit:** tap any block on Today or on a day (Week, then tap a day). Change title, category, start and end, copy it to other days, or delete it.
+- **Add:** tap the **Add event** button, or tap a free-time slot to add something right there. Choose a **Prepared** event (26 ready-made ones: gym, groceries, laundry steps, room cleaning, study, hobby, meal prep, vet visit, and more) or create a **Custom** one with your own title and category.
+- **Overlaps:** adding or moving an event over existing blocks shows a warning first. Confirm and the covered blocks are shortened, split or removed.
+- **Free time** is handled automatically: deleting an event frees its time, and adding one takes time out of free slots.
+- **Reset this day** restores one day to the default schedule. Past your bedtime? You get a soft note, not a block.
 
 ## Sleep tab
 
@@ -28,7 +38,7 @@ These are estimates from an average cycle. The app cannot measure your sleep, an
 
 ## Updating the app
 
-Edit the files, commit, and bump the version in `sw.js` (`const CACHE = "grind-v0.1.2"`). Phones pick up the new files the next time the app opens, usually after one extra launch.
+Edit the files, commit, and bump the version in `sw.js` (`const CACHE = "grind-v0.2.1"`). Phones pick up the new files the next time the app opens, usually after one extra launch.
 
 ## Your data
 
@@ -50,6 +60,6 @@ To test locally: `python3 -m http.server` in this folder, then open `http://loca
 
 ## Roadmap
 
-- **v0.2:** edit blocks, quota tasks with progress (gym 2/4), "running late" shifting, Budget screen with free-time protection
+- **v0.2.x:** quota tasks with progress (gym 2/4), "running late" shifting, Budget screen with free-time protection
 - **v0.3:** timers and actual versus planned, day modes (light day, sick day, day off), calendar export with alarms
 - **Later:** chained tasks, hobby blocks, stats

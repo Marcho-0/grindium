@@ -1,5 +1,5 @@
 /* Offline support. Bump CACHE when you deploy changes so phones pick up the new files. */
-const CACHE = "grind-v0.1.1";
+const CACHE = "grind-v0.2.0";
 const ASSETS = [
   "./", "./index.html", "./manifest.webmanifest",
   "./css/styles.css",

@@ -1,6 +1,6 @@
 /* Default schedule and categories. Generated from the weekly plan. */
 window.Grind = window.Grind || {};
-Grind.cats = [{"id": "work", "color": "#5E81AC"}, {"id": "care", "color": "#B48EAD"}, {"id": "cats", "color": "#EBA937"}, {"id": "meals", "color": "#7FA650"}, {"id": "clean", "color": "#8C9AA3"}, {"id": "gym", "color": "#D2605A"}, {"id": "groceries", "color": "#3FA796"}, {"id": "laundry", "color": "#6EB5D9"}, {"id": "study", "color": "#7B6FC4"}, {"id": "free", "color": "#C9D1D3"}];
+Grind.cats = [{"id": "work", "color": "#5E81AC"}, {"id": "care", "color": "#B48EAD"}, {"id": "cats", "color": "#EBA937"}, {"id": "meals", "color": "#7FA650"}, {"id": "clean", "color": "#8C9AA3"}, {"id": "gym", "color": "#D2605A"}, {"id": "groceries", "color": "#3FA796"}, {"id": "laundry", "color": "#6EB5D9"}, {"id": "study", "color": "#7B6FC4"}, {"id": "hobby", "color": "#C96FA4"}, {"id": "social", "color": "#E1893F"}, {"id": "other", "color": "#A68B6A"}, {"id": "free", "color": "#C9D1D3"}];
 Grind.seed = [
   {"id":"d0b0","day":0,"start":"06:50","end":"07:20","key":"wake","cat":"care"},
   {"id":"d0b1","day":0,"start":"07:20","end":"07:30","key":"startLaundry","cat":"laundry"},

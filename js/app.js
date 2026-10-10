@@ -1,7 +1,7 @@
 /* Grind v0.1: Today, Week, Settings. No framework, no build step. */
 (function () {
   "use strict";
-  var VERSION = "0.1.1";
+  var VERSION = "0.2.0";
   var t = Grind.i18n.t;
   var COLORS = {};
   Grind.cats.forEach(function (c) { COLORS[c.id] = c.color; });
@@ -13,6 +13,7 @@
   var $tabs = document.getElementById("tabs");
   var $toast = document.getElementById("toast");
   var $file = document.getElementById("file");
+  var $sheet = document.getElementById("sheet");
   var ui = { view: "today", day: null };
   var sleepUI = { day: null, n: 5 };
   var deferredPrompt = null;
@@ -95,15 +96,18 @@
       var cur = o.live && o.min >= s && o.min < e;
       var past = o.live && e <= o.min;
       var st = o.live ? status(o.key, b.id) : null;
-      var check = (o.live && !free)
-        ? '<button class="check" data-act="toggle" data-id="' + b.id + '" aria-pressed="' + (st === "done") +
-          '" aria-label="' + esc(t("act.done") + ": " + title(b)) + '">' + (st === "done" ? CHECK : "") + "</button>"
-        : "<span></span>";
+      var tail;
+      if (free) tail = '<span class="plus" aria-hidden="true">+</span>';
+      else if (o.live) {
+        tail = '<button class="check" data-act="toggle" data-id="' + b.id + '" aria-pressed="' + (st === "done") +
+          '" aria-label="' + esc(t("act.done") + ": " + title(b)) + '">' + (st === "done" ? CHECK : "") + "</button>";
+      } else tail = "<span></span>";
       var meta = st === "skipped" ? t("state.skipped") : (free ? dur(e - s) : t("cat." + b.cat) + ", " + dur(e - s));
       return '<li class="row' + (cur ? " cur" : "") + (past ? " past" : "") + (free ? " is-free" : "") +
         (st === "skipped" ? " skipped" : "") + '"' + (free ? "" : ' style="--cat:' + COLORS[b.cat] + '"') + ">" +
         '<span class="t">' + b.start + '</span><span class="bar"></span>' +
-        '<span class="txt"><b>' + esc(title(b)) + "</b><small>" + esc(meta) + "</small></span>" + check + "</li>";
+        '<button class="txt" data-act="' + (free ? "addAt" : "edit") + '" data-id="' + b.id + '"><b>' + esc(title(b)) + "</b><small>" + esc(meta) + "</small></button>" +
+        tail + "</li>";
     }).join("");
     var bed = '<li class="row bedtime"><span class="t">' + esc(S.settings.bedtime) + '</span><span class="bar"></span>' +
       '<span class="txt"><b>' + esc(t("bedtime")) + "</b>" + (o.live && o.hint ? "<small>" + esc(bedHint()) + "</small>" : "") + "</span><span></span></li>";
@@ -133,7 +137,7 @@
     var n = nowInfo(), blocks = blocksFor(n.day);
     var head = '<header class="top"><h1>Grind</h1><p class="date">' +
       esc(new Intl.DateTimeFormat(Grind.i18n.getLang(), { weekday: "long", day: "numeric", month: "long" }).format(n.d)) + "</p></header>";
-    if (!blocks.length) return head + banners();
+    if (!blocks.length) return head + banners() + fab(n.day);
 
     var first = blocks[0], lastB = blocks[blocks.length - 1];
     var cur = blocks.filter(function (b) { return n.min >= toMin(b.start) && n.min < toMin(b.end); })[0];
@@ -174,7 +178,7 @@
     var freeLine = freeLeft > 0 ? '<p class="freeleft">' + esc(t("free.left", { time: dur(freeLeft) })) + "</p>" : "";
 
     return head + card + banners() + dayBar(blocks, n.min) + freeLine +
-      rail(blocks, { live: true, min: n.min, key: n.key, hint: true });
+      rail(blocks, { live: true, min: n.min, key: n.key, hint: true }) + fab(n.day);
   }
 
   function viewWeek() {
@@ -207,8 +211,9 @@
   function viewDay() {
     var n = nowInfo(), blocks = blocksFor(ui.day), live = ui.day === n.day;
     return '<header class="top"><button class="back" data-act="back">' + esc(t("day.back")) + "</button><h1>" +
-      esc(dayName(ui.day, "long")) + "</h1></header>" + dayBar(blocks, live ? n.min : null) +
-      rail(blocks, { live: live, min: n.min, key: n.key });
+      esc(dayName(ui.day, "long")) + '</h1><p class="date">' + esc(t("plan.hint")) + "</p></header>" + dayBar(blocks, live ? n.min : null) +
+      rail(blocks, { live: live, min: n.min, key: n.key, hint: live }) +
+      '<p class="resetday"><button class="btn ghost" data-act="resetDay">' + esc(t("plan.resetDay")) + "</button></p>" + fab(ui.day);
   }
 
   function viewSettings() {
@@ -230,6 +235,177 @@
       '<p class="foot">' + esc(t("settings.privacy")) + "<br>" + esc(t("settings.version", { version: VERSION })) + "</p>";
   }
 
+
+  /* ---------- planner: prepared events, custom events, editing ---------- */
+  var TEMPLATES = [
+    { key: "wake", cat: "care", dur: 30 }, { key: "stretch", cat: "care", dur: 15 },
+    { key: "workBlock", cat: "work", dur: 240 },
+    { key: "breakfast", cat: "meals", dur: 15 }, { key: "lunch", cat: "meals", dur: 60 },
+    { key: "dinner", cat: "meals", dur: 75 }, { key: "mealPrep", cat: "meals", dur: 90 },
+    { key: "cats", cat: "cats", dur: 15 }, { key: "litter", cat: "cats", dur: 10 }, { key: "vet", cat: "cats", dur: 60 },
+    { key: "room", cat: "clean", dur: 20, arg: "kitchen" },
+    { key: "gym", cat: "gym", dur: 105 }, { key: "walk", cat: "gym", dur: 30 },
+    { key: "groceriesMain", cat: "groceries", dur: 75 }, { key: "groceriesTop", cat: "groceries", dur: 30 },
+    { key: "startLaundry", cat: "laundry", dur: 10 }, { key: "hangLaundry", cat: "laundry", dur: 10 }, { key: "foldLaundry", cat: "laundry", dur: 10 },
+    { key: "study", cat: "study", dur: 90 }, { key: "language", cat: "study", dur: 30 },
+    { key: "hobby", cat: "hobby", dur: 60 }, { key: "reading", cat: "hobby", dur: 30 },
+    { key: "call", cat: "social", dur: 30 }, { key: "friends", cat: "social", dur: 120 },
+    { key: "errands", cat: "other", dur: 45 }, { key: "appointment", cat: "other", dur: 60 }
+  ];
+  var ROOMS = ["kitchen", "bathroom", "bedroom", "living", "hall", "catarea", "reset"];
+  var sheet = null;
+
+  function uid() { return "u" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+  function defTitle(key, arg) { return t("key." + key, arg ? { room: t("room." + arg) } : null); }
+  function clampMin(m) { return Math.max(0, Math.min(1439, m)); }
+
+  function carve(day, s, e) {            /* make [s,e) empty on a day by trimming, splitting or removing blocks */
+    var out = [];
+    S.blocks.forEach(function (b) {
+      if (b.day !== day) { out.push(b); return; }
+      var bs = toMin(b.start), be = toMin(b.end);
+      if (be <= s || bs >= e) { out.push(b); return; }
+      if (bs < s) { var l = clone(b); l.end = toStr(s); out.push(l); }
+      if (be > e) { var r = clone(b); if (bs < s) r.id = uid(); r.start = toStr(e); out.push(r); }
+    });
+    S.blocks = out;
+  }
+  function normaliseDay(day) {           /* fill gaps with free time, merge neighbouring free blocks */
+    var bl = blocksFor(day).filter(function (b) { return toMin(b.end) > toMin(b.start); });
+    var filled = [], prev = null;
+    bl.forEach(function (b) {
+      if (prev && toMin(b.start) > toMin(prev.end)) filled.push({ id: uid(), day: day, start: prev.end, end: b.start, key: "free", cat: "free" });
+      filled.push(b); prev = b;
+    });
+    var merged = [];
+    filled.forEach(function (b) {
+      var last = merged[merged.length - 1];
+      if (last && last.cat === "free" && b.cat === "free" && last.end === b.start) last.end = b.end; else merged.push(b);
+    });
+    S.blocks = S.blocks.filter(function (b) { return b.day !== day; }).concat(merged);
+  }
+  function suggest(day, d, slot) {       /* a sensible start and end for a new event */
+    if (slot) { var a = toMin(slot.start); return { start: a, end: Math.min(toMin(slot.end), a + d) }; }
+    var n = nowInfo(), minStart = day === n.day ? Math.ceil(n.min / 5) * 5 : 0;
+    var free = blocksFor(day).filter(function (b) { return b.cat === "free"; });
+    for (var i = 0; i < free.length; i++) {
+      var st = Math.max(toMin(free[i].start), minStart);
+      if (toMin(free[i].end) - st >= d) return { start: st, end: st + d };
+    }
+    return { start: 12 * 60, end: Math.min(1439, 12 * 60 + d) };
+  }
+  function formFrom(tpl, day, slot) {
+    var d = tpl ? tpl.dur : 60, tm = suggest(day, d, slot);
+    return { id: null, day: day, key: tpl ? tpl.key : null, arg: tpl ? (tpl.arg || null) : null,
+      title: tpl ? defTitle(tpl.key, tpl.arg) : "", cat: tpl ? tpl.cat : "other", start: toStr(clampMin(tm.start)), end: toStr(clampMin(tm.end)), days: [day] };
+  }
+  function openAdd(day, slot) { sheet = { mode: "add", step: "list", day: day, slot: slot || null, f: null, warn: null, armed: false, error: null }; renderSheet(); }
+  function openEdit(id) {
+    var b = S.blocks.filter(function (x) { return x.id === id; })[0];
+    if (!b) return;
+    sheet = { mode: "edit", step: "form", day: b.day, slot: null, warn: null, armed: false, error: null,
+      f: { id: b.id, day: b.day, key: b.key || null, arg: b.arg || null, title: title(b), cat: b.cat, start: b.start, end: b.end, days: [] } };
+    renderSheet();
+  }
+  function closeSheet() { sheet = null; renderSheet(); }
+
+  function chipsHtml() {
+    var f = sheet.f, edit = sheet.mode === "edit";
+    return [0, 1, 2, 3, 4, 5, 6].map(function (d) {
+      var on = edit ? (d === f.day || f.days.indexOf(d) !== -1) : f.days.indexOf(d) !== -1;
+      return '<button type="button" class="chip" data-act="sheetDay" data-day="' + d + '" aria-pressed="' + on + '"' + (edit && d === f.day ? " disabled" : "") + ">" + esc(dayName(d, "short")) + "</button>";
+    }).join("");
+  }
+  function pickHtml() {
+    var rank = {}; Grind.cats.forEach(function (c, i) { rank[c.id] = i; });
+    var list = TEMPLATES.map(function (x, i) { return { x: x, i: i }; }).sort(function (a, b) { return rank[a.x.cat] - rank[b.x.cat] || a.i - b.i; });
+    var lastCat = null, items = "";
+    list.forEach(function (o) {
+      if (o.x.cat !== lastCat) { items += '<li class="grp">' + esc(t("cat." + o.x.cat)) + "</li>"; lastCat = o.x.cat; }
+      items += '<li><button class="tpl" style="--cat:' + COLORS[o.x.cat] + '" data-act="pickTpl" data-i="' + o.i + '"><span class="tpl-bar"></span><span class="tpl-txt"><b>' +
+        esc(defTitle(o.x.key, o.x.arg)) + "</b><small>" + esc(dur(o.x.dur)) + "</small></span></button></li>";
+    });
+    return '<div class="seg2"><button data-act="sheetTab" data-tab="prepared" aria-pressed="true">' + esc(t("plan.tabPrepared")) +
+      '</button><button data-act="sheetTab" data-tab="custom" aria-pressed="false">' + esc(t("plan.tabCustom")) + "</button></div>" +
+      '<p class="hint">' + esc(t("plan.pickHint")) + '</p><ul class="tpls">' + items + "</ul>";
+  }
+  function formHtml() {
+    var f = sheet.f, edit = sheet.mode === "edit", s = toMin(f.start), e = toMin(f.end);
+    var catOpts = Grind.cats.filter(function (c) { return c.id !== "free"; }).map(function (c) {
+      return '<option value="' + c.id + '"' + (c.id === f.cat ? " selected" : "") + ">" + esc(t("cat." + c.id)) + "</option>";
+    }).join("");
+    var room = "";
+    if (f.key === "room") {
+      room = '<div class="field"><label for="pf-room">' + esc(t("plan.room")) + '</label><select id="pf-room">' + ROOMS.map(function (r) {
+        return '<option value="' + r + '"' + (r === f.arg ? " selected" : "") + ">" + esc(t("room." + r)) + "</option>";
+      }).join("") + "</select></div>";
+    }
+    var notes = "";
+    if (sheet.error) notes += '<div class="warn-box" role="alert">' + esc(sheet.error) + "</div>";
+    if (sheet.warn) notes += '<div class="warn-box" role="alert">' + esc(t("plan.conflict", { list: sheet.warn.join("; ") })) + "</div>";
+    if (e > toMin(S.settings.bedtime)) notes += '<p class="hint">' + esc(t("plan.pastBed", { time: S.settings.bedtime })) + "</p>";
+    var back = (!edit && !sheet.custom) ? '<button class="back" data-act="sheetBack">' + esc(t("plan.back")) + "</button>" : "";
+    return back +
+      '<div class="field"><label for="pf-title">' + esc(t("plan.title")) + '</label><input id="pf-title" type="text" value="' + esc(f.title) + '" placeholder="' + esc(t("plan.titlePlaceholder")) + '" maxlength="80" autocomplete="off"></div>' +
+      room +
+      '<div class="field"><label for="pf-cat">' + esc(t("plan.category")) + '</label><select id="pf-cat">' + catOpts + "</select></div>" +
+      '<div class="times"><div class="field"><label for="pf-start">' + esc(t("plan.start")) + '</label><input id="pf-start" type="time" step="300" value="' + esc(f.start) + '"></div>' +
+      '<div class="field"><label for="pf-end">' + esc(t("plan.end")) + '</label><input id="pf-end" type="time" step="300" value="' + esc(f.end) + '"></div></div>' +
+      (e > s ? '<p class="hint">' + esc(t("plan.duration", { time: dur(e - s) })) + "</p>" : "") +
+      '<div class="field"><span class="lab">' + esc(edit ? t("plan.alsoAdd") : t("plan.days")) + '</span><div class="chips">' + chipsHtml() + "</div></div>" +
+      notes +
+      '<div class="sheet-actions"><button class="btn" data-act="saveSheet">' + esc(sheet.armed ? t("plan.replace") : (edit ? t("plan.save") : t("plan.addBtn"))) + "</button>" +
+      (edit ? '<button class="btn danger" data-act="deleteEvent">' + esc(t("plan.delete")) + "</button>" : "") +
+      '<button class="btn ghost" data-act="closeSheet">' + esc(t("plan.cancel")) + "</button></div>";
+  }
+  function renderSheet() {
+    document.body.classList.toggle("sheet-open", !!sheet);
+    if (!sheet) { $sheet.innerHTML = ""; return; }
+    var inner = (sheet.mode === "add" && sheet.step === "list") ? pickHtml() : formHtml();
+    $sheet.innerHTML = '<div class="backdrop" data-act="closeSheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="' +
+      esc(sheet.mode === "edit" ? t("plan.edit") : t("plan.add")) + '"><div class="sheet-head"><h2>' + esc(sheet.mode === "edit" ? t("plan.edit") : t("plan.add")) +
+      '</h2><button class="x" data-act="closeSheet" aria-label="' + esc(t("plan.close")) + '">\u00d7</button></div>' + inner + "</div>";
+  }
+  function saveSheet() {
+    var f = sheet.f, s = toMin(f.start), e = toMin(f.end), edit = sheet.mode === "edit";
+    var name = f.title.trim();
+    var targets = edit ? [f.day].concat(f.days.filter(function (d) { return d !== f.day; })) : f.days.slice();
+    sheet.error = null;
+    if (!name) sheet.error = t("plan.errorTitle");
+    else if (!f.start || !f.end || e <= s) sheet.error = t("plan.errorTime");
+    else if (!targets.length) sheet.error = t("plan.errorDays");
+    if (sheet.error) { sheet.armed = false; sheet.warn = null; renderSheet(); return; }
+
+    if (!sheet.armed) {
+      var clash = [];
+      targets.forEach(function (d) {
+        S.blocks.forEach(function (b) {
+          if (b.day !== d || b.cat === "free" || (edit && b.id === f.id)) return;
+          if (toMin(b.start) < e && toMin(b.end) > s) clash.push(dayName(d, "short") + " " + title(b) + " " + b.start + "\u2013" + b.end);
+        });
+      });
+      if (clash.length) { sheet.warn = clash; sheet.armed = true; renderSheet(); return; }
+    }
+    var useKey = f.key && name === defTitle(f.key, f.arg);
+    targets.forEach(function (d) {
+      var own = edit && d === f.day;
+      if (own) S.blocks = S.blocks.filter(function (b) { return b.id !== f.id; });
+      carve(d, s, e);
+      var nb = { id: own ? f.id : uid(), day: d, start: f.start, end: f.end, cat: f.cat };
+      if (useKey) { nb.key = f.key; if (f.arg) nb.arg = f.arg; } else nb.title = name;
+      S.blocks.push(nb);
+      normaliseDay(d);
+    });
+    save(); sheet = null; renderSheet(); toast(t("plan.saved")); render(true);
+  }
+  function deleteEvent() {
+    var f = sheet.f;
+    S.blocks = S.blocks.filter(function (b) { return b.id !== f.id; });
+    normaliseDay(f.day);
+    save(); sheet = null; renderSheet(); toast(t("plan.deleted")); render(true);
+  }
+  function fab(day) { return '<button class="fab" data-act="addEvent" data-day="' + day + '"><span aria-hidden="true">+</span> ' + esc(t("plan.add")) + "</button>"; }
 
   /* ---------- sleep: cycles, REM windows, circadian anchors ---------- */
   /* Typical share of each cycle spent in deep sleep and REM. Early cycles are deep-heavy, late cycles REM-heavy. */
@@ -390,6 +566,29 @@
     var act = el.dataset.act, n = nowInfo();
     if (act === "nav") { ui = { view: el.dataset.view, day: null }; render(false); }
     else if (act === "openDay") { ui = { view: "day", day: +el.dataset.day }; render(false); }
+    else if (act === "addEvent") openAdd(+el.dataset.day, null);
+    else if (act === "addAt") { var fb = S.blocks.filter(function (x) { return x.id === el.dataset.id; })[0]; if (fb) openAdd(fb.day, { start: fb.start, end: fb.end }); }
+    else if (act === "edit") openEdit(el.dataset.id);
+    else if (act === "closeSheet") closeSheet();
+    else if (act === "sheetTab") {
+      if (el.dataset.tab === "custom") { sheet.step = "form"; sheet.custom = true; sheet.f = formFrom(null, sheet.day, sheet.slot); renderSheet(); var ti = document.getElementById("pf-title"); if (ti) ti.focus(); }
+    }
+    else if (act === "pickTpl") { sheet.step = "form"; sheet.custom = false; sheet.f = formFrom(TEMPLATES[+el.dataset.i], sheet.day, sheet.slot); renderSheet(); }
+    else if (act === "sheetBack") { sheet.step = "list"; sheet.f = null; sheet.warn = null; sheet.armed = false; sheet.error = null; renderSheet(); }
+    else if (act === "sheetDay") {
+      var dd = +el.dataset.day, arr = sheet.f.days, ix = arr.indexOf(dd);
+      if (ix === -1) arr.push(dd); else arr.splice(ix, 1);
+      sheet.armed = false; sheet.warn = null; sheet.error = null; renderSheet();
+    }
+    else if (act === "saveSheet") saveSheet();
+    else if (act === "deleteEvent") deleteEvent();
+    else if (act === "resetDay") {
+      if (window.confirm(t("plan.resetDayConfirm"))) {
+        var dday = ui.day;
+        S.blocks = S.blocks.filter(function (b) { return b.day !== dday; }).concat(clone(Grind.seed.filter(function (b) { return b.day === dday; })));
+        save(); toast(t("plan.dayReset")); render(true);
+      }
+    }
     else if (act === "sleepDay") { sleepUI.day = +el.dataset.day; render(true); }
     else if (act === "sleepN") { sleepUI.n = +el.dataset.n; render(true); }
     else if (act === "applyBed") {
@@ -414,7 +613,22 @@
       }
     }
   });
+  document.addEventListener("input", function (e) {
+    if (sheet && sheet.f && e.target.id === "pf-title") { sheet.f.title = e.target.value; sheet.armed = false; sheet.warn = null; }
+  });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && sheet) closeSheet(); });
   document.addEventListener("change", function (e) {
+    if (sheet && sheet.f) {
+      var f = sheet.f, id = e.target.id, touched = true;
+      if (id === "pf-cat") f.cat = e.target.value;
+      else if (id === "pf-room") {
+        var wasDefault = f.title === defTitle(f.key, f.arg); f.arg = e.target.value; if (wasDefault) f.title = defTitle(f.key, f.arg);
+      }
+      else if (id === "pf-start") f.start = e.target.value;
+      else if (id === "pf-end") f.end = e.target.value;
+      else touched = false;
+      if (touched) { sheet.armed = false; sheet.warn = null; sheet.error = null; renderSheet(); return; }
+    }
     if (e.target.id === "lang") { S.settings.lang = e.target.value; save(); render(true); }
     else if (e.target.id === "bedtime" && /^\d\d:\d\d$/.test(e.target.value)) { S.settings.bedtime = e.target.value; save(); }
     else if (e.target.id === "sleepBed" && /^\d\d:\d\d$/.test(e.target.value)) { S.settings.bedtime = e.target.value; save(); render(true); }

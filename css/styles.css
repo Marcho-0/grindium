@@ -101,6 +101,7 @@ button { font: inherit; color: inherit; }
 .row { display: grid; grid-template-columns: 3rem 6px 1fr 2.5rem; column-gap: .75rem; align-items: stretch; min-height: 3.4rem; padding: .35rem 0; }
 .row .t { color: var(--muted); font-size: .9rem; padding-top: .1rem; }
 .row .bar { background: var(--cat); border-radius: 3px; }
+.row button.txt { background: none; border: 0; padding: 0; margin: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; }
 .row .txt { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
 .row b { font-weight: 650; line-height: 1.25; }
 .row small { color: var(--muted); font-size: .82rem; }
@@ -193,3 +194,37 @@ button { font: inherit; color: inherit; }
 .drift { margin: .25rem 0 0; color: var(--muted); font-size: .92rem; }
 .panel label + select, .panel h3 + .chips { margin-top: .1rem; }
 .row.bedtime { min-height: 3rem; }
+
+/* planner */
+.plus { align-self: center; justify-self: end; width: 2.25rem; height: 2.25rem; border-radius: 50%; border: 2px dashed var(--muted); color: var(--muted); display: grid; place-items: center; font-size: 1.3rem; line-height: 1; }
+.fab { position: fixed; right: 1rem; bottom: calc(4.9rem + env(safe-area-inset-bottom, 0px)); z-index: 10; min-height: 3rem; padding: 0 1.1rem; border-radius: 999px; border: 0; background: var(--ink); color: var(--paper); font-weight: 800; box-shadow: 0 4px 14px rgba(0,0,0,.28); cursor: pointer; }
+.fab span { font-size: 1.2rem; margin-right: .25rem; }
+main:has(.fab) { padding-bottom: calc(9rem + env(safe-area-inset-bottom, 0px)); }
+.resetday { margin: 1.25rem 0 0; }
+.backdrop { position: fixed; inset: 0; background: rgba(10,18,24,.55); z-index: 20; }
+.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 21; max-width: 34rem; margin: 0 auto; max-height: 92vh; overflow-y: auto; background: var(--card); border-radius: 18px 18px 0 0; padding: 1rem 1rem calc(1.25rem + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -8px 30px rgba(0,0,0,.3); overscroll-behavior: contain; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: .75rem; }
+.sheet-head h2 { margin: 0; font-size: 1.2rem; font-weight: 800; letter-spacing: -0.02em; }
+.x { width: 2.75rem; height: 2.75rem; border-radius: 50%; border: 0; background: var(--paper); font-size: 1.5rem; line-height: 1; cursor: pointer; }
+body.sheet-open { overflow: hidden; }
+.seg2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; background: var(--paper); border-radius: 12px; }
+.seg2 button { min-height: 2.5rem; border: 0; border-radius: 9px; background: transparent; font-weight: 700; cursor: pointer; }
+.seg2 button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.hint { margin: .5rem 0; color: var(--muted); font-size: .9rem; }
+.tpls { list-style: none; margin: 0; padding: 0; }
+.grp { margin: .9rem 0 .3rem; font-weight: 800; font-size: .9rem; color: var(--muted); }
+.tpl { display: flex; align-items: stretch; gap: .75rem; width: 100%; padding: .45rem .5rem; border: 0; background: none; text-align: left; cursor: pointer; border-radius: 8px; }
+.tpl:active { background: var(--paper); }
+.tpl-bar { width: 6px; border-radius: 3px; background: var(--cat); }
+.tpl-txt { display: flex; flex-direction: column; }
+.tpl-txt b { font-weight: 650; }
+.tpl-txt small { color: var(--muted); font-size: .82rem; }
+.field { display: flex; flex-direction: column; gap: .25rem; margin-bottom: .8rem; }
+.field label, .field .lab { font-weight: 700; font-size: .92rem; }
+.field input, .field select { font: inherit; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 10px; min-height: 2.75rem; padding: 0 .75rem; width: 100%; }
+.times { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+.warn-box { border: 2px solid #D2605A; border-radius: 10px; padding: .6rem .75rem; margin: 0 0 .8rem; font-size: .92rem; }
+.sheet-actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .5rem; }
+.btn.danger { background: transparent; color: #D2605A; border-color: #D2605A; }
+.chip:disabled { opacity: .55; cursor: default; }
+@media (prefers-color-scheme: dark) { .fab, .x { box-shadow: none; } }
